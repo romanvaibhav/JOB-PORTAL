@@ -127,7 +127,53 @@ const logout = async (req, res) => {
 };
 const profileUpdate = async (req, res) => {
   try {
-    const { fullName, phoneNo, bio, skills, email} = req.body;
+    const { fullName, phoneNo, bio, skills, email } = req.body;
+    const file = req.file;
+    if (file) {
+      const fileUri = getDataUri(file);
+      cloudResponse = await cloudinary.uploader.upload(fileUri.content, {
+        resource_type: "auto",
+      });
+    }
+    let skillArray;
+    if (skills) {
+      skillArray = skills.split(",");
+    }
+    const userId = req.id;
+    let user = await User.findById(userId);
+    if (!user) {
+      return res.status(400).json({
+        message: "User Not Found",
+        success: "false",
+      });
+    }
+
+    if (fullName) user.fullName = fullName;
+    if (phoneNo) user.phoneNo = phoneNo;
+    if (email) user.email = email;
+    if (bio) user.profile.bio = bio;
+    if (skills) user.profile.skills = skillArray;
+
+    if (file && cloudResponse) {
+      user.profile.resume = cloudResponse.secure_url;
+      user.profile.resumeOriginalName = file.originalname;
+    }
+
+    await user.save();
+
+    user = {
+      _id: user._id,
+      fullname: user.fullname,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      profile: user.profile,
+    };
+    return res.status(200).json({
+      message: "Profile Updated",
+      user,
+      success: true,
+    });
   } catch (err) {
     console.log(err);
   }
